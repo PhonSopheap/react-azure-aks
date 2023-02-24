@@ -1,0 +1,45 @@
+.app {
+  height: 100vh;
+  background-color: #282c34;
+  color: white;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 30%;
+  text-align: center;
+}
+
+.title {
+  font-size: 3rem;
+}
+
+.subtitle {
+  font-size: 1.5rem;
+}
+
+.main {
+  height: 70%;
+}
+
+.card {
+  background-color: #2b2e38;
+  color: black;
+  border: none;
+}
+
+.card-title {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+.card-text {
+  font-size: 1.5rem;
+  margin-bottom: 2rem;
+}
+form div{
+  padding: 5px;
+}

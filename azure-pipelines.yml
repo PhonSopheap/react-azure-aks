@@ -1,0 +1,87 @@
+trigger:
+- master
+
+resources:
+- repo: self
+
+variables:
+  imageRepo: 'react-simple-demo'
+  registryCon: 'azure-cr'
+  kubernetesCon: 'azure-aks'
+  tag: '$(Build.BuildId)'
+  dockerImage: '$(acrurl)/$(imageRepo):$(tag)'
+
+stages:
+- stage: Build
+  displayName: Build image
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - task: NodeTool@0
+      displayName: "Install and Build React Application"
+      inputs:
+        versionSpec: '16.x'
+    - script: npm install
+    - script: npm run build
+    
+    - task: Docker@2
+      displayName: Build and Push an image
+      inputs:
+        containerRegistry: '$(registryCon)'
+        repository: '$(imageRepo)'
+        command: 'buildAndPush'
+        Dockerfile: '$(Build.SourcesDirectory)/**/Dockerfile'
+        tags: |
+          $(tag)
+          latest
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.SourcesDirectory)/kubernetes'
+        ArtifactName: 'manifests'
+        publishLocation: 'Container'
+        
+- stage: Deploy
+  displayName: Deploy
+  dependsOn: Build
+  variables:
+    acrsecret: 'k8ssecrete'
+    acrurl: 'azurecrkubernetes.azurecr.io'
+  jobs:
+  - job: DownloadPipelineArtifact
+    pool:
+      vmImage: ubuntu-latest
+  
+  - deployment: Dev
+    displayName: Deploy to Dev
+    environment: 'k8sdev'
+    pool: 
+      vmImage: ubuntu-latest
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: DownloadPipelineArtifact@2
+            inputs:
+              buildType: 'current'
+              artifactName: 'manifests'
+              targetPath: '$(Pipeline.Workspace)/manifests'
+          - task: KubernetesManifest@0
+            inputs:
+              action: 'createSecret'
+              kubernetesServiceConnection: '$(kubernetesCon)'
+              namespace: 'dev'
+              secretType: 'dockerRegistry'
+              secretName: '$(acrsecret)'
+              dockerRegistryEndpoint: '$(registryCon)'
+          - task: KubernetesManifest@0
+            inputs:
+              action: 'deploy'
+              kubernetesServiceConnection: '$(kubernetesCon)'
+              namespace: 'dev'
+              manifests: |
+                $(Pipeline.Workspace)/manifests/react-deployment-dev.yml
+              imagePullSecrets: '$(acrsecret)'
+              containers: '$(dockerImage)'
